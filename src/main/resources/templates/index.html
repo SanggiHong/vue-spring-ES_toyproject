@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="http://cdn.jsdelivr.net/vue/2.0.3/vue.js"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous"/>
+  <style type="text/css">
+    .vertical-divider{
+	  clear: both;
+	  position: relative;
+    }
+
+    .vertical-divider:after {
+	  clear: both;
+	  content: " ";
+	  display: block;
+	  height: 0;
+	  visibility: hidden;
+    }
+
+    .vertical-divider .column:not(:first-child):after, .vertical-divider .columns:not(:first-child):after{
+	  background: #DDDDDD;
+	  bottom: 0;
+	  content: " ";
+	  margin-left: -10px;
+	  position: absolute;
+	  top: 0;
+	  width: 1px;
+    }
+
+    /* Very simple grid for example */
+    .container { position: relative; width: 960px; margin: 20px auto; padding: 0; }
+    .container .column, .container .columns { float: left; display: inline; margin-left: 10px; margin-right: 10px; }
+    .container .one-second.column { width: 460px; }
+  </style>
+  <title>Insert title here</title>
+</head>
+<body>
+  <div class="container vertical-divider">
+    
+    <div class="column one-second">
+      <div id="post">
+        <p>Title</p>
+        <input style="width: 100%;" v-model="title">
+        <p>Content</p>
+        <textarea class="autoExpand" style="width: 100%;" rows='3' data-min-rows='3' v-model="content"></textarea>
+        <button v-on:click="postRequest">Post</button>
+      </div>
+    </div>
+    
+    
+    <div class="column one-second">
+      <div id="search">
+        <input style="width: 300px;" v-model="keyword">
+        <button style="width: 100px;" v-on:click="searchRequest">Search</button>
+    
+        <div class="list-group">
+        <div v-for="document in documents">
+          <a href="#" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+              <h5 class="mb-1">{{ document.title }}</h5>
+            </div>
+            <p class="mb-1">{{ document.content }}</p>
+          </a>
+        </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</body>
+
+<script type="text/javascript">
+  /* Pure javascript  area */
+  $(document)
+  .one('focus.autoExpand', 'textarea.autoExpand', function(){
+      var savedValue = this.value;
+      this.value = '';
+      this.baseScrollHeight = this.scrollHeight;
+      this.value = savedValue;
+  })
+  .on('input.autoExpand', 'textarea.autoExpand', function(){
+      var minRows = this.getAttribute('data-min-rows')|0, rows;
+      this.rows = minRows;
+      rows = Math.ceil((this.scrollHeight - this.baseScrollHeight) / 16);
+      this.rows = minRows + rows;
+  });
+</script>
+
+<script type="text/javascript">
+  /* Vue.js area */
+  var vm_post = new Vue({
+	  el: '#post',
+	  data: {
+		  title: '',
+		  content: ''
+	  },
+      methods: {
+    	  postRequest: function() {
+    		  if (this.title === '' || this.content === '') {
+    			  console.log('Request discarded')
+    			  return
+    		  }
+    			  
+    		  axios
+    		  .post('http://localhost:8080/post', {
+    			  title: this.title,
+    			  content: this.content
+    		  })
+    		  .then(response => (console.log(response)))
+    		  .catch(error => (console.log(error)))
+    		  
+    		  this.title = ''
+    		  this.content = ''
+    	  }
+      }
+  })
+
+  var vm_search = new Vue({
+	  el: '#search',
+	  data: {
+		  keyword: '',
+		  documents: [],
+	  },
+      methods: {
+    	  searchRequest: function() {
+    		  axios
+    		  .get('http://localhost:8080/search?keyword=' + this.keyword)
+    		  .then(response => {
+    			      console.log('search response status : ' + response.status)
+    			      this.documents = response.data.documents
+    		          }
+    			   )
+    		  .catch(function (error) {
+    			  console.log("GET ERROR")
+    			  console.log(error)
+    		  })
+    	  }
+      }
+  })
+</script>
+</html>
