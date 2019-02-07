@@ -11,38 +11,28 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.elasticapi.ElasticApi;
-import com.example.demo.elasticapi.PostResult;
-import com.example.demo.elasticapi.SearchResult;
 
 @RestController
 public class DocumentController {
 	
-	private final String ELASTIC_INDEX = "tuto-index";
-	private final String ELASTIC_TYPE = "tuto-type";
-	
+	private final String INDEX = "tuto-index";
+
 	@Autowired
 	ElasticApi elasticApi;
 	
 	@RequestMapping(value = "/search", method = RequestMethod.GET)
 	public SearchResult search(@RequestParam(value="keyword", defaultValue="") String keyword) {
-		return elasticApi.searchElasticApi(
-				ELASTIC_INDEX,
-				keyword.toLowerCase(),
-				(h) -> { 
-					Map<String, Object> source = h.getSourceAsMap();
-					source.put("id", h.getId());
-					return source;
-					}
-				);
+		
+		IndexingEngine engine = elasticApi;
+		
+		return engine.search(INDEX, keyword.toLowerCase());
 	}
 	
 	@RequestMapping(value = "/post", method = RequestMethod.POST)
 	public PostResult post(@RequestBody Document document) {
 		
-		Map<String, Object> jsonMap = new HashMap<>();
-		jsonMap.put("title", document.getTitle());
-		jsonMap.put("content", document.getContent());
+		IndexingEngine engine = elasticApi;
 		
-		return elasticApi.postElasticApi(ELASTIC_INDEX, ELASTIC_TYPE, jsonMap);
+		return engine.post(INDEX, document);
 	}
 }

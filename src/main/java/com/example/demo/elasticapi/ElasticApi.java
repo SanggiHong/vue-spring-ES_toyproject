@@ -22,9 +22,14 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.example.demo.restapi.Document;
+import com.example.demo.restapi.IndexingEngine;
+import com.example.demo.restapi.PostResult;
+import com.example.demo.restapi.SearchResult;
+
 
 @Component
-public class ElasticApi {
+public class ElasticApi implements IndexingEngine {
 	
 	@Value("${elasticsearch.host}")
 	private String host;
@@ -32,22 +37,21 @@ public class ElasticApi {
 	@Value("${elasticsearch.port}")
 	private int port;
 	
-	private final String STR_CREATED = "CREATED";
-	private final String STR_UPDATED = "UPDATED";
-	private final String STR_IOEXCEPT = "IO_EXCEPTION";
-	private final String STR_ILLEGAL = "ILLEGAL_RESULT";
+	@Value("${elasticsearch.port_node1}")
+	private int port_node1;
 	
-	@FunctionalInterface
-	public interface SearchResultBuilder {
-		public Map<String, Object> build(SearchHit hit);
-	}
+	@Value("${elasticsearch.type}")
+	private String type;
 	
-	public SearchResult searchElasticApi(String index, String keyword, SearchResultBuilder builder) {
+	@Value ("${elasticsearch.protocol}")
+	private String protocol;
+	
+	public SearchResult search(String index, String keyword) {
 		
 		RestHighLevelClient client = new RestHighLevelClient(
 		        RestClient.builder(
-		                new HttpHost("localhost", 9200, "http"),
-		                new HttpHost("localhost", 9201, "http")
+		                new HttpHost("localhost", port, protocol),
+		                new HttpHost("localhost", port_node1, protocol)
 		                )
 		        );
 		
@@ -63,14 +67,10 @@ public class ElasticApi {
 		SearchResult result;
 		try {
 			SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
-		
-			RestStatus status = searchResponse.status();
-			ArrayList<Map<String, Object>> documents = new ArrayList<>();
 			
-			for (SearchHit hit : searchResponse.getHits())
-				documents.add(builder.build(hit));
-			
-			result = new SearchResult(status.getStatus(), documents);
+			result = new SearchResultConverter()
+										.source(searchResponse)
+										.convert();
 			client.close();
 		} catch (IOException e) {
 			result = new SearchResult(417, null);
@@ -79,54 +79,34 @@ public class ElasticApi {
 		return result;
 	}
 	
-	public PostResult postElasticApi(String index, String type, Map<String, Object> jsonMap) {
+	public PostResult post(String index, Document document) {
 		
 		RestHighLevelClient client = new RestHighLevelClient(
 		        RestClient.builder(
-		                new HttpHost("localhost", 9200, "http"),
-		                new HttpHost("localhost", 9201, "http")
+		                new HttpHost("localhost", port, protocol),
+		                new HttpHost("localhost", port_node1, protocol)
 		                )
 		        );
 		
+		IndexRequest indexRequest = new IndexRequest(index, type)
+				.source(new PostRequestConverter()
+						.source(document)
+						.convert());
+		
 		PostResult result;
 		try {
-			IndexRequest indexRequest = new IndexRequest(index, type)
-											.source(jsonMap);
 			IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
 			
-			StringBuffer message = new StringBuffer();
-			if (existFailedShard(indexResponse.getShardInfo())) {
-				for (ReplicationResponse.ShardInfo.Failure failure :
-					indexResponse.getShardInfo().getFailures())
-					message.append('[' + failure.reason() + ']');
-			}
-			
-			result = new PostResult(
-					getResultString(indexResponse.getResult()),
-					message.toString(),
-					indexResponse.getIndex(),
-					indexResponse.getType(),
-					indexResponse.getId());
+			result = new PostResultConverter()
+								.source(indexResponse)
+								.convert();
 			
 			client.close();
 		} catch (IOException e) {
-			result = new PostResult(STR_IOEXCEPT, e.toString(), "", "", "");
+			result = new PostResult(Result.STR_IOEXCEPT, e.toString(), "", "", "");
 		}
 		
 		
 		return result;
-	}
-	
-	private boolean existFailedShard(ReplicationResponse.ShardInfo shardInfo) {
-		return 0 < shardInfo.getFailed();
-	}
-	
-	private String getResultString(DocWriteResponse.Result result) {
-		if (result == DocWriteResponse.Result.CREATED)
-			return STR_CREATED;
-		else if (result == DocWriteResponse.Result.UPDATED)
-			return STR_UPDATED;
-		
-		return STR_ILLEGAL;
 	}
 }

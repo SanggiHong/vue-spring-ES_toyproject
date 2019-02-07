@@ -1,4 +1,4 @@
-package com.example.demo.elasticapi;
+package com.example.demo.restapi;
 
 public class PostResult {
 	
